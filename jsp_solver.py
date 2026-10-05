@@ -113,7 +113,7 @@ def solve_milp(
     if objective == "makespan":
         model += makespan
     elif objective == "flow_time":
-        model += flow_time
+        model += flow_time + 0.0001 * makespan
     elif objective == "idle_time":
         model += idle_time
     else:

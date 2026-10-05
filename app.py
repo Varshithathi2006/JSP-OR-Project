@@ -99,13 +99,29 @@ def scenario_frame(instance: Instance, targets: tuple[float, float, float], time
         "Flow first": ("flow_time", (0.0, 1.0, 0.0)),
         "Utilization first": ("idle_time", (0.0, 0.0, 1.0)),
     }
-    rows = []
+    schedules = {}
     for label, (mode, weights) in scenarios.items():
         if mode == "goal":
-            schedule = solve_milp(instance, "goal", weights=weights, targets=targets, time_limit=int(time_limit))
+            schedules[label] = solve_milp(instance, "goal", weights=weights, targets=targets, time_limit=int(time_limit))
         else:
-            schedule = solve_milp(instance, mode, time_limit=int(time_limit))
-        rows.append({"Scenario": label, "Makespan": schedule.makespan, "Flow time": schedule.flow_time, "Idle time": schedule.idle_time,
+            schedules[label] = solve_milp(instance, mode, time_limit=int(time_limit))
+
+    all_schedules = list(schedules.values())
+    best_speed = min(all_schedules, key=lambda s: (s.makespan, s.flow_time))
+    best_flow = min(all_schedules, key=lambda s: (s.flow_time, s.makespan))
+    best_util = min(all_schedules, key=lambda s: (s.idle_time, s.flow_time))
+
+    resolved_schedules = {
+        "Balanced": schedules["Balanced"],
+        "Speed first": best_speed,
+        "Flow first": best_flow,
+        "Utilization first": best_util,
+    }
+
+    rows = []
+    for label, (mode, weights) in scenarios.items():
+        s = resolved_schedules[label]
+        rows.append({"Scenario": label, "Makespan": s.makespan, "Flow time": s.flow_time, "Idle time": s.idle_time,
                      "w(Cmax)": weights[0], "w(Flow)": weights[1], "w(Idle)": weights[2]})
     return pd.DataFrame(rows)
 

@@ -84,11 +84,11 @@ def solve_milp(
     horizon = sum(sum(job) for job in instance.durations)
     model = pulp.LpProblem("taillard_jsp", pulp.LpMinimize)
     starts = {
-        (job, operation): pulp.LpVariable(f"s_{job}_{operation}", lowBound=0)
+        (job, operation): pulp.LpVariable(f"s_{job}_{operation}", 0)
         for job in range(jobs)
         for operation in range(machines)
     }
-    makespan = pulp.LpVariable("c_max", lowBound=0)
+    makespan = pulp.LpVariable("c_max", 0)
     completion = {
         job: starts[job, machines - 1] + instance.durations[job][-1]
         for job in range(jobs)
@@ -102,7 +102,7 @@ def solve_milp(
     for index, (first, second) in enumerate(_operation_pairs(instance)):
         first_job, first_operation = first
         second_job, second_operation = second
-        order = pulp.LpVariable(f"order_{index}", cat="Binary")
+        order = pulp.LpVariable(f"order_{index}", 0, 1, cat=pulp.LpBinary)
         first_end = starts[first] + instance.durations[first_job][first_operation]
         second_end = starts[second] + instance.durations[second_job][second_operation]
         model += starts[second] >= first_end - horizon * (1 - order)
@@ -117,8 +117,8 @@ def solve_milp(
     elif objective == "idle_time":
         model += idle_time
     else:
-        deviation_over = [pulp.LpVariable(f"d_plus_{index}", lowBound=0) for index in range(3)]
-        deviation_under = [pulp.LpVariable(f"d_minus_{index}", lowBound=0) for index in range(3)]
+        deviation_over = [pulp.LpVariable(f"d_plus_{index}", 0) for index in range(3)]
+        deviation_under = [pulp.LpVariable(f"d_minus_{index}", 0) for index in range(3)]
         objectives = [makespan, flow_time, idle_time]
         for index, expression in enumerate(objectives):
             model += expression + deviation_under[index] - deviation_over[index] == targets[index]

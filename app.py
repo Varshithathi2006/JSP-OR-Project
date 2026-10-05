@@ -53,17 +53,18 @@ def load_instance(name: str) -> Instance:
 @st.cache_data(show_spinner=False)
 def baseline_targets(name: str, time_limit: int) -> tuple[float, float, float]:
     instance = load_instance(name)
-    schedules = [solve_milp(instance, objective, time_limit=time_limit) for objective in ("makespan", "flow_time", "idle_time")]
+    schedules = [solve_milp(instance, objective, time_limit=int(time_limit)) for objective in ("makespan", "flow_time", "idle_time")]
     return (schedules[0].makespan, schedules[1].flow_time, schedules[2].idle_time)
 
 
 @st.cache_data(show_spinner=False)
 def solve_cached(name: str, mode: str, weights: tuple[float, float, float], time_limit: int) -> tuple[Schedule, tuple[float, float, float]]:
     instance = load_instance(name)
+    time_limit_int = int(time_limit)
     if mode == "goal":
-        targets = baseline_targets(name, time_limit)
-        return solve_milp(instance, "goal", weights, targets, time_limit), targets
-    schedule = solve_milp(instance, mode, time_limit=time_limit)
+        targets = baseline_targets(name, time_limit_int)
+        return solve_milp(instance, "goal", weights=weights, targets=targets, time_limit=time_limit_int), targets
+    schedule = solve_milp(instance, mode, time_limit=time_limit_int)
     return schedule, (schedule.makespan, schedule.flow_time, schedule.idle_time)
 
 
@@ -97,7 +98,7 @@ def scenario_frame(instance: Instance, targets: tuple[float, float, float], time
     }
     rows = []
     for label, weights in scenarios.items():
-        schedule = solve_milp(instance, "goal", weights, targets, time_limit)
+        schedule = solve_milp(instance, "goal", weights=weights, targets=targets, time_limit=int(time_limit))
         rows.append({"Scenario": label, "Makespan": schedule.makespan, "Flow time": schedule.flow_time, "Idle time": schedule.idle_time,
                      "w(Cmax)": weights[0], "w(Flow)": weights[1], "w(Idle)": weights[2]})
     return pd.DataFrame(rows)

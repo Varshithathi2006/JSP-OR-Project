@@ -77,21 +77,25 @@ def solve_milp(
     if objective == "goal" and (weights is None or targets is None):
         raise ValueError("goal programming requires weights and targets")
 
+    jobs = int(instance.jobs)
+    machines = int(instance.machines)
+    time_limit_val = int(time_limit) if time_limit is not None else None
+
     horizon = sum(sum(job) for job in instance.durations)
     model = pulp.LpProblem("taillard_jsp", pulp.LpMinimize)
     starts = {
         (job, operation): pulp.LpVariable(f"s_{job}_{operation}", lowBound=0)
-        for job in range(instance.jobs)
-        for operation in range(instance.machines)
+        for job in range(jobs)
+        for operation in range(machines)
     }
     makespan = pulp.LpVariable("c_max", lowBound=0)
     completion = {
-        job: starts[job, instance.machines - 1] + instance.durations[job][-1]
-        for job in range(instance.jobs)
+        job: starts[job, machines - 1] + instance.durations[job][-1]
+        for job in range(jobs)
     }
 
-    for job in range(instance.jobs):
-        for operation in range(instance.machines - 1):
+    for job in range(jobs):
+        for operation in range(machines - 1):
             model += starts[job, operation + 1] >= starts[job, operation] + instance.durations[job][operation]
         model += makespan >= completion[job]
 
@@ -105,7 +109,7 @@ def solve_milp(
         model += starts[first] >= second_end - horizon * order
 
     flow_time = pulp.lpSum(completion.values())
-    idle_time = instance.machines * makespan - sum(sum(job) for job in instance.durations)
+    idle_time = machines * makespan - sum(sum(job) for job in instance.durations)
     if objective == "makespan":
         model += makespan
     elif objective == "flow_time":
@@ -120,7 +124,7 @@ def solve_milp(
             model += expression + deviation_under[index] - deviation_over[index] == targets[index]
         model += pulp.lpSum(weights[index] * deviation_over[index] / max(targets[index], 1) for index in range(3))
 
-    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=time_limit)
+    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=time_limit_val)
     model.solve(solver)
     status = pulp.LpStatus[model.status]
     if status not in {"Optimal", "Feasible"}:
@@ -128,8 +132,8 @@ def solve_milp(
 
     solved_starts = {key: float(pulp.value(variable)) for key, variable in starts.items()}
     solved_makespan = float(pulp.value(makespan))
-    solved_flow_time = sum(solved_starts[job, instance.machines - 1] + instance.durations[job][-1] for job in range(instance.jobs))
-    solved_idle_time = instance.machines * solved_makespan - sum(sum(job) for job in instance.durations)
+    solved_flow_time = sum(solved_starts[job, machines - 1] + instance.durations[job][-1] for job in range(jobs))
+    solved_idle_time = machines * solved_makespan - sum(sum(job) for job in instance.durations)
     return Schedule(solved_starts, solved_makespan, solved_flow_time, solved_idle_time, status)
 
 

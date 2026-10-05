@@ -54,7 +54,10 @@ def load_instance(name: str) -> Instance:
 def baseline_targets(name: str, time_limit: int) -> tuple[float, float, float]:
     instance = load_instance(name)
     schedules = [solve_milp(instance, objective, time_limit=int(time_limit)) for objective in ("makespan", "flow_time", "idle_time")]
-    return (schedules[0].makespan, schedules[1].flow_time, schedules[2].idle_time)
+    best_makespan = min(s.makespan for s in schedules)
+    best_flow = min(s.flow_time for s in schedules)
+    best_idle = min(s.idle_time for s in schedules)
+    return (best_makespan, best_flow, best_idle)
 
 
 @st.cache_data(show_spinner=False)
@@ -91,14 +94,17 @@ def schedule_figure(instance: Instance, schedule: Schedule) -> plt.Figure:
 
 def scenario_frame(instance: Instance, targets: tuple[float, float, float], time_limit: int) -> pd.DataFrame:
     scenarios = {
-        "Balanced": (1 / 3, 1 / 3, 1 / 3),
-        "Speed first": (1.0, 0.0, 0.0),
-        "Flow first": (0.0, 1.0, 0.0),
-        "Utilization first": (0.0, 0.0, 1.0),
+        "Balanced": ("goal", (1 / 3, 1 / 3, 1 / 3)),
+        "Speed first": ("makespan", (1.0, 0.0, 0.0)),
+        "Flow first": ("flow_time", (0.0, 1.0, 0.0)),
+        "Utilization first": ("idle_time", (0.0, 0.0, 1.0)),
     }
     rows = []
-    for label, weights in scenarios.items():
-        schedule = solve_milp(instance, "goal", weights=weights, targets=targets, time_limit=int(time_limit))
+    for label, (mode, weights) in scenarios.items():
+        if mode == "goal":
+            schedule = solve_milp(instance, "goal", weights=weights, targets=targets, time_limit=int(time_limit))
+        else:
+            schedule = solve_milp(instance, mode, time_limit=int(time_limit))
         rows.append({"Scenario": label, "Makespan": schedule.makespan, "Flow time": schedule.flow_time, "Idle time": schedule.idle_time,
                      "w(Cmax)": weights[0], "w(Flow)": weights[1], "w(Idle)": weights[2]})
     return pd.DataFrame(rows)

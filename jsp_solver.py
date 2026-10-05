@@ -140,8 +140,11 @@ def solve_milp(
 def solve_goal_programming(instance: Instance, weights: tuple[float, float, float] = (1 / 3, 1 / 3, 1 / 3), time_limit: int | None = None) -> tuple[Schedule, tuple[float, float, float]]:
     """Compute ideal single-objective targets, then solve weighted GP."""
     target_schedules = [solve_milp(instance, objective, time_limit=time_limit) for objective in ("makespan", "flow_time", "idle_time")]
-    targets = tuple((schedule.makespan, schedule.flow_time, schedule.idle_time)[index] for index, schedule in enumerate(target_schedules))
-    return solve_milp(instance, "goal", weights, targets, time_limit), targets
+    best_makespan = min(s.makespan for s in target_schedules)
+    best_flow = min(s.flow_time for s in target_schedules)
+    best_idle = min(s.idle_time for s in target_schedules)
+    targets = (best_makespan, best_flow, best_idle)
+    return solve_milp(instance, "goal", weights=weights, targets=targets, time_limit=time_limit), targets
 
 
 def validate_schedule(instance: Instance, schedule: Schedule, tolerance: float = 1e-6) -> None:
